@@ -3,10 +3,18 @@ import axios from 'axios';
 // Automatically handle VITE_API_URL whether it has trailing slashes or '/api'
 const getBaseURL = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  if (!envUrl) return '/api';
+  if (envUrl && envUrl.trim()) {
+    const clean = envUrl.trim().replace(/\/+$/, '');
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+  }
   
-  const clean = envUrl.trim().replace(/\/+$/, '');
-  return clean.endsWith('/api') ? clean : `${clean}/api`;
+  // In production (Vercel deployment or standalone PWA), default to the live Render backend
+  if (import.meta.env.PROD) {
+    return 'https://daily-tracker-hp21.onrender.com/api';
+  }
+  
+  // In local development, use Vite's proxy
+  return '/api';
 };
 
 const api = axios.create({
