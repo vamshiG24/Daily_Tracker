@@ -1,13 +1,16 @@
 import axios from 'axios';
 
-// In production on Vercel, uses VITE_API_URL pointing to Render backend
-// In local development, falls back to '/api' (proxied by Vite)
-const baseURL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
-  : '/api';
+// Automatically handle VITE_API_URL whether it has trailing slashes or '/api'
+const getBaseURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return '/api';
+  
+  const clean = envUrl.trim().replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
 
 const api = axios.create({
-  baseURL,
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json'
   }
