@@ -1,0 +1,16 @@
+name: Keep Render Backend Awake
+
+on:
+  schedule:
+    # Runs every 12 minutes to keep the Render free-tier container warm and prevent cold starts
+    - cron: '*/12 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Render Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping DailyTracker Live API
+        run: |
+          curl -s -f "https://daily-tracker-hp21.onrender.com/api/health" || echo "Ping failed or server waking up"

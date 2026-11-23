@@ -21,7 +21,7 @@ export const getAllCards = async (req, res) => {
       query['studyLogs.tags'] = { $in: [new RegExp(tag, 'i')] };
     }
 
-    const cards = await DailyCard.find(query).sort({ date: sort === 'asc' ? 1 : -1 });
+    const cards = await DailyCard.find(query).sort({ date: sort === 'asc' ? 1 : -1 }).lean();
     res.json({ success: true, count: cards.length, data: cards });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -32,7 +32,7 @@ export const getAllCards = async (req, res) => {
 export const getCardByDate = async (req, res) => {
   try {
     const { date } = req.params;
-    const card = await DailyCard.findOne({ date });
+    const card = await DailyCard.findOne({ date }).lean();
 
     if (!card) {
       return res.status(200).json({
@@ -118,7 +118,7 @@ export const deleteCard = async (req, res) => {
 // Get stats: streaks, study hours, tasks completed, job counts
 export const getStats = async (req, res) => {
   try {
-    const cards = await DailyCard.find().sort({ date: 1 });
+    const cards = await DailyCard.find().select('date morningTasks studyLogs jobsApplied').sort({ date: 1 }).lean();
 
     let totalTasks = 0;
     let completedTasks = 0;

@@ -19,34 +19,77 @@ import { getCards, getStats, deleteCard } from '../api/client';
 
 export default function AllCardsPage({ onOpenAi }) {
   const navigate = useNavigate();
-  const [cards, setCards] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dt_cards_cache');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [stats, setStats] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dt_stats_cache');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dt_cards_cache');
+      return !(saved && JSON.parse(saved).length > 0);
+    } catch {
+      return true;
+    }
+  });
+  const [isWakingUp, setIsWakingUp] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
 
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    fetchCardsAndStats();
+    fetchCardsAndStats(true);
 
-    const handleFocus = () => fetchCardsAndStats();
+    // Silent background refresh on tab focus without full-screen flicker
+    const handleFocus = () => fetchCardsAndStats(false);
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
-  const fetchCardsAndStats = async () => {
-    try {
+  const fetchCardsAndStats = async (isInitial = false) => {
+    if (cards.length === 0 && isInitial) {
       setLoading(true);
+    }
+
+    // If server takes longer than 2.5 seconds (Render cold start), notify user
+    const wakeTimer = setTimeout(() => {
+      setIsWakingUp(true);
+    }, 2500);
+
+    try {
       const [cardsRes, statsRes] = await Promise.all([
         getCards(),
         getStats()
       ]);
-      setCards(cardsRes.data.data || []);
-      setStats(statsRes.data.data || null);
+      const newCards = cardsRes.data.data || [];
+      const newStats = statsRes.data.data || null;
+
+      setCards(newCards);
+      setStats(newStats);
+
+      try {
+        localStorage.setItem('dt_cards_cache', JSON.stringify(newCards));
+        if (newStats) localStorage.setItem('dt_stats_cache', JSON.stringify(newStats));
+      } catch (storageErr) {
+        console.warn('Failed to cache data locally:', storageErr);
+      }
     } catch (err) {
       console.error('Failed to load cards:', err);
     } finally {
+      clearTimeout(wakeTimer);
+      setIsWakingUp(false);
       setLoading(false);
     }
   };
@@ -58,8 +101,14 @@ export default function AllCardsPage({ onOpenAi }) {
 
     try {
       await deleteCard(date);
-      setCards(prev => prev.filter(c => c.date !== date));
-      fetchCardsAndStats();
+      setCards(prev => {
+        const updated = prev.filter(c => c.date !== date);
+        try {
+          localStorage.setItem('dt_cards_cache', JSON.stringify(updated));
+        } catch (_) {}
+        return updated;
+      });
+      fetchCardsAndStats(false);
     } catch (err) {
       alert('Failed to delete card: ' + err.message);
     }
@@ -88,6 +137,20 @@ export default function AllCardsPage({ onOpenAi }) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8 pb-24 md:pb-12">
       
+      {/* Cloud Server Wake-up Notice */}
+      {isWakingUp && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-900 text-xs font-semibold shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+            </span>
+            <span>Cloud server is waking up (Render free tier)... Syncing latest data in a few seconds.</span>
+          </div>
+          <span className="text-[10px] text-blue-600 bg-blue-100/70 px-2 py-0.5 rounded-md font-mono hidden sm:inline">Syncing...</span>
+        </div>
+      )}
+
       {/* 3D Hero & Quick Stats Section */}
       <div className="relative overflow-hidden rounded-3xl bg-white border border-blue-100 p-5 sm:p-8 md:p-10 shadow-[0_20px_50px_rgba(37,99,235,0.08)]">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-sky-300/20 rounded-full blur-3xl pointer-events-none" />

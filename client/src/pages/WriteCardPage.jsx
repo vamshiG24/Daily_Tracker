@@ -50,8 +50,25 @@ export default function WriteCardPage() {
   }, [date]);
 
   const fetchCardData = async (targetDate) => {
+    // Check local cache first for instant 0ms pre-fill
     try {
-      setLoading(true);
+      const cached = localStorage.getItem('dt_cards_cache');
+      if (cached) {
+        const list = JSON.parse(cached);
+        const match = list.find(c => c.date === targetDate);
+        if (match) {
+          setTitle(match.title || '');
+          setMood(match.mood || 'focused');
+          setNotes(match.notes || '');
+          setMorningTasks(match.morningTasks || []);
+          setStudyLogs(match.studyLogs || []);
+          setJobsApplied(match.jobsApplied || []);
+          setLoading(false);
+        }
+      }
+    } catch (_) {}
+
+    try {
       const res = await getCardByDate(targetDate);
       const data = res.data.data;
 
@@ -184,6 +201,20 @@ export default function WriteCardPage() {
         studyLogs: studyLogs.filter(s => s.topic.trim()),
         jobsApplied: jobsApplied.filter(j => j.companyName.trim())
       };
+
+      // Optimistically update local cache immediately so it shows instantly on All Cards page
+      try {
+        const cached = localStorage.getItem('dt_cards_cache');
+        let list = cached ? JSON.parse(cached) : [];
+        const index = list.findIndex(c => c.date === date);
+        const optimisticDoc = { ...payload, date, updatedAt: new Date().toISOString() };
+        if (index >= 0) {
+          list[index] = { ...list[index], ...optimisticDoc };
+        } else {
+          list.unshift(optimisticDoc);
+        }
+        localStorage.setItem('dt_cards_cache', JSON.stringify(list));
+      } catch (_) {}
 
       await saveCard(date, payload);
       setSaveMessage({ type: 'success', text: 'Daily card saved successfully!' });

@@ -30,8 +30,20 @@ export default function VisualizerPage({ onOpenAi }) {
   }, [date]);
 
   const fetchCard = async () => {
+    // Check local cache first for instant 0ms visualizer rendering
     try {
-      setLoading(true);
+      const cached = localStorage.getItem('dt_cards_cache');
+      if (cached) {
+        const list = JSON.parse(cached);
+        const match = list.find(c => c.date === date);
+        if (match) {
+          setCard(match);
+          setLoading(false);
+        }
+      }
+    } catch (_) {}
+
+    try {
       const res = await getCardByDate(date);
       setCard(res.data.data);
     } catch (err) {
