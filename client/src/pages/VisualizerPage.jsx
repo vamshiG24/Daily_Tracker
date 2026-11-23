@@ -53,19 +53,47 @@ export default function VisualizerPage({ onOpenAi }) {
     }
   };
 
+  const today = new Date().toISOString().split('T')[0];
+
   // Toggle task right inside visualizer
   const handleToggle = async (taskId) => {
+    // 1. Optimistic toggle locally first
+    const currentTasks = card?.morningTasks || [];
+    const updatedTasks = currentTasks.map(t =>
+      t.id === taskId
+        ? { ...t, isCompleted: !t.isCompleted, completedAt: !t.isCompleted ? new Date() : null }
+        : t
+    );
+    const updatedCard = { ...card, morningTasks: updatedTasks };
+    setCard(updatedCard);
+
+    // 2. Save to local cache immediately so All Cards page displays updated count
+    try {
+      const cached = localStorage.getItem('dt_cards_cache');
+      if (cached) {
+        let list = JSON.parse(cached);
+        const idx = list.findIndex(c => c.date === date);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], morningTasks: updatedTasks };
+          localStorage.setItem('dt_cards_cache', JSON.stringify(list));
+        }
+      }
+    } catch (_) {}
+
+    confetti({
+      particleCount: 45,
+      spread: 60,
+      origin: { y: 0.6 },
+      colors: ['#2563eb', '#38bdf8', '#10b981', '#6366f1']
+    });
+
     try {
       const res = await toggleTask(date, taskId);
-      setCard(res.data.data);
-      confetti({
-        particleCount: 45,
-        spread: 60,
-        origin: { y: 0.6 },
-        colors: ['#2563eb', '#38bdf8', '#10b981', '#6366f1']
-      });
+      if (res.data?.data) {
+        setCard(res.data.data);
+      }
     } catch (err) {
-      console.error('Error toggling task:', err);
+      console.error('Error toggling task on server:', err);
     }
   };
 
@@ -94,16 +122,37 @@ export default function VisualizerPage({ onOpenAi }) {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8 pb-24 md:pb-12">
       
       {/* Navigation Top Bar */}
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          to="/cards"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden xs:inline">Back to</span> All Cards
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-2">
+          <Link
+            to="/cards"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden xs:inline">Back to</span> Cards
+          </Link>
+
+          {date !== today && (
+            <Link
+              to={`/cards/${today}`}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200 transition"
+            >
+              <Calendar className="w-3.5 h-3.5 text-blue-600" />
+              <span>Today ({today})</span>
+            </Link>
+          )}
+        </div>
 
         <div className="flex items-center gap-2">
+          {/* Quick Date Switcher */}
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => e.target.value && navigate(`/cards/${e.target.value}`)}
+            className="bg-white border border-slate-200 rounded-xl px-2.5 py-1 sm:py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 shadow-xs cursor-pointer"
+            title="Pick date to visualize"
+          />
+
           <Link
             to={`/write?date=${date}`}
             className="btn-3d-white flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-slate-700 text-xs font-bold"

@@ -90,8 +90,41 @@ export default function WriteCardPage() {
     setSearchParams({ date: newDate });
   };
 
+  // Helper to immediately persist tasks to both localStorage and cloud backend
+  const persistMorningTasks = async (updatedTasks) => {
+    const payload = {
+      title,
+      mood,
+      notes,
+      morningTasks: updatedTasks,
+      studyLogs: studyLogs.filter(s => s.topic.trim()),
+      jobsApplied: jobsApplied.filter(j => j.companyName.trim())
+    };
+
+    // 1. Instant local update
+    try {
+      const cached = localStorage.getItem('dt_cards_cache');
+      let list = cached ? JSON.parse(cached) : [];
+      const index = list.findIndex(c => c.date === date);
+      const optimisticDoc = { ...payload, date, updatedAt: new Date().toISOString() };
+      if (index >= 0) {
+        list[index] = { ...list[index], ...optimisticDoc };
+      } else {
+        list.unshift(optimisticDoc);
+      }
+      localStorage.setItem('dt_cards_cache', JSON.stringify(list));
+    } catch (_) {}
+
+    // 2. Background sync to MongoDB
+    try {
+      await saveCard(date, payload);
+    } catch (err) {
+      console.warn('Background task auto-save:', err.message);
+    }
+  };
+
   // Add Morning Task
-  const handleAddMorningTask = (e) => {
+  const handleAddMorningTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
 
@@ -104,38 +137,45 @@ export default function WriteCardPage() {
       completedAt: null
     };
 
-    setMorningTasks(prev => [...prev, task]);
+    const updatedTasks = [...morningTasks, task];
+    setMorningTasks(updatedTasks);
     setNewTaskTitle('');
     setNewTaskDesc('');
+
+    // Persist immediately so tasks are never lost
+    await persistMorningTasks(updatedTasks);
   };
 
   // Toggle Task Checkbox & Confetti
-  const handleToggleTask = (taskId) => {
-    setMorningTasks(prev =>
-      prev.map(t => {
-        if (t.id === taskId) {
-          const nextState = !t.isCompleted;
-          if (nextState) {
-            confetti({
-              particleCount: 50,
-              spread: 60,
-              origin: { y: 0.7 },
-              colors: ['#2563eb', '#38bdf8', '#10b981', '#6366f1']
-            });
-          }
-          return {
-            ...t,
-            isCompleted: nextState,
-            completedAt: nextState ? new Date() : null
-          };
+  const handleToggleTask = async (taskId) => {
+    const updatedTasks = morningTasks.map(t => {
+      if (t.id === taskId) {
+        const nextState = !t.isCompleted;
+        if (nextState) {
+          confetti({
+            particleCount: 50,
+            spread: 60,
+            origin: { y: 0.7 },
+            colors: ['#2563eb', '#38bdf8', '#10b981', '#6366f1']
+          });
         }
-        return t;
-      })
-    );
+        return {
+          ...t,
+          isCompleted: nextState,
+          completedAt: nextState ? new Date() : null
+        };
+      }
+      return t;
+    });
+
+    setMorningTasks(updatedTasks);
+    await persistMorningTasks(updatedTasks);
   };
 
-  const handleDeleteTask = (taskId) => {
-    setMorningTasks(prev => prev.filter(t => t.id !== taskId));
+  const handleDeleteTask = async (taskId) => {
+    const updatedTasks = morningTasks.filter(t => t.id !== taskId);
+    setMorningTasks(updatedTasks);
+    await persistMorningTasks(updatedTasks);
   };
 
   // Study Logs handlers
@@ -193,11 +233,28 @@ export default function WriteCardPage() {
       setSaving(true);
       setSaveMessage(null);
 
+      // If user typed a task in the morning task box but didn't click '+ Add Goal', include it automatically
+      let tasksToSave = [...morningTasks];
+      if (newTaskTitle.trim()) {
+        const pendingTask = {
+          id: Date.now().toString(),
+          task: newTaskTitle.trim(),
+          description: newTaskDesc.trim(),
+          isCompleted: false,
+          priority: newTaskPriority,
+          completedAt: null
+        };
+        tasksToSave.push(pendingTask);
+        setMorningTasks(tasksToSave);
+        setNewTaskTitle('');
+        setNewTaskDesc('');
+      }
+
       const payload = {
         title,
         mood,
         notes,
-        morningTasks,
+        morningTasks: tasksToSave,
         studyLogs: studyLogs.filter(s => s.topic.trim()),
         jobsApplied: jobsApplied.filter(j => j.companyName.trim())
       };

@@ -46,6 +46,8 @@ export default function App() {
           <Route path="/" element={<Navigate to="/cards" replace />} />
           <Route path="/cards" element={<AllCardsPage onOpenAi={handleOpenAi} />} />
           <Route path="/write" element={<WriteCardPage />} />
+          <Route path="/visualizer" element={<Navigate to={`/cards/${new Date().toISOString().split('T')[0]}`} replace />} />
+          <Route path="/visualize" element={<Navigate to={`/cards/${new Date().toISOString().split('T')[0]}`} replace />} />
           <Route path="/cards/:date" element={<VisualizerPage onOpenAi={handleOpenAi} />} />
           <Route path="/cards/:date/edit" element={<WriteCardPage />} />
           <Route path="*" element={<Navigate to="/cards" replace />} />
