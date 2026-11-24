@@ -1,0 +1,26 @@
+{
+  "short_name": "DailyTracker",
+  "name": "DailyTracker AI",
+  "description": "Daily productivity, learning, and job tracker powered by Gemini AI",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "display": "standalone",
+  "orientation": "portrait"
+}
