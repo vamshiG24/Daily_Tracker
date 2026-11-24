@@ -13,6 +13,13 @@ server/.env
 dist/
 */dist/
 build/
+.gradle/
+client/android/.gradle/
+client/android/app/build/
+client/android/build/
+*.apk
+*.aab
+local.properties
 
 # Logs & Debug
 npm-debug.log*

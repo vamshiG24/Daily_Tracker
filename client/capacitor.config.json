@@ -1,0 +1,9 @@
+{
+  "appId": "com.dailytracker.app",
+  "appName": "DailyTracker AI",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}
