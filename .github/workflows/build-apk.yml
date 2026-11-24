@@ -30,11 +30,9 @@ jobs:
         working-directory: client
         run: npm install --legacy-peer-deps
 
-      - name: Build Web Assets & Copy to Android
+      - name: Build Web Assets & Sync Android
         working-directory: client
-        run: |
-          npm run build
-          npx @capacitor/cli copy android
+        run: npm run build:app
 
       - name: Build Android Debug APK
         working-directory: client/android
